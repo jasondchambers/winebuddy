@@ -1,0 +1,15 @@
+[project]
+name = "winebuddy"
+version = "0.1.0"
+description = "A wine cellar management CLI tool"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "typer>=0.21.1",
+]
+
+[project.scripts]
+winebuddy = "query:app"
+
+[tool.setuptools]
+py-modules = ["query"]
