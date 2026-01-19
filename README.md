@@ -11,10 +11,6 @@ cellar.
 # From local directory
 uvx --from . winebuddy --help
 
-# From a git repository
-uvx --from git+https://github.com/your-username/winebuddy winebuddy --help
-```
-
 ### Install as a tool
 
 ```bash

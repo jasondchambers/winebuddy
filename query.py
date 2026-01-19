@@ -4,7 +4,9 @@
 import csv
 import io
 import json
+import os
 import sqlite3
+import sys
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Optional
@@ -12,6 +14,162 @@ from typing import Annotated, Optional
 import typer
 
 DB_PATH = "cellar.db"
+CSV_PATH = "cellar.csv"
+
+
+def print_setup_instructions():
+    """Print instructions for exporting data from CellarTracker."""
+    instructions = """
+WineBuddy Setup
+===============
+
+No cellar database or CSV file found.
+
+To get started, you need to export your wine data from CellarTracker:
+
+1. Go to CellarTracker: https://mobileapp.cellartracker.com
+2. Log in to your account
+3. Navigate to your cellar and click "Export"
+4. Configure the export:
+   - Include wines from ALL pages
+   - Export Format: Comma Separated Values
+   - Select these columns:
+     Color, Category, Size, Currency, Value, Price, TotalQuantity,
+     Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
+     Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
+5. Download and save the file as "cellar.csv" in the current directory
+6. Run winebuddy again
+"""
+    print(instructions)
+
+
+def init_database():
+    """Initialize the SQLite database with the wines table schema."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            color TEXT NOT NULL,
+            category TEXT NOT NULL,
+            size TEXT NOT NULL,
+            currency TEXT NOT NULL,
+            value REAL,
+            price REAL,
+            total_quantity INTEGER NOT NULL DEFAULT 0,
+            quantity INTEGER NOT NULL DEFAULT 0,
+            pending INTEGER NOT NULL DEFAULT 0,
+            vintage INTEGER,
+            wine_name TEXT NOT NULL,
+            locale TEXT,
+            producer TEXT,
+            varietal TEXT,
+            country TEXT,
+            region TEXT,
+            subregion TEXT,
+            begin_consume INTEGER,
+            end_consume INTEGER,
+            professional_score REAL,
+            community_score REAL
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def parse_float(value):
+    """Parse a float value, returning None for empty strings."""
+    if value == "" or value is None:
+        return None
+    return float(value)
+
+
+def parse_int(value):
+    """Parse an integer value, returning None for empty strings."""
+    if value == "" or value is None:
+        return None
+    return int(value)
+
+
+def parse_vintage(value):
+    """Parse vintage, returning None for non-vintage wines (1001)."""
+    if value == "" or value is None:
+        return None
+    vintage = int(value)
+    if vintage == 1001:
+        return None
+    return vintage
+
+
+def load_csv_to_database():
+    """Load wine data from CSV file into the SQLite database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    with open(CSV_PATH, "r", encoding="latin-1") as f:
+        reader = csv.DictReader(f)
+
+        insert_sql = """
+            INSERT INTO wines (
+                color, category, size, currency, value, price,
+                total_quantity, quantity, pending, vintage, wine_name,
+                locale, producer, varietal, country, region, subregion,
+                begin_consume, end_consume, professional_score, community_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        rows_inserted = 0
+        for row in reader:
+            values = (
+                row["Color"],
+                row["Category"],
+                row["Size"],
+                row["Currency"],
+                parse_float(row["Value"]),
+                parse_float(row["Price"]),
+                parse_int(row["TotalQuantity"]),
+                parse_int(row["Quantity"]),
+                parse_int(row["Pending"]),
+                parse_vintage(row["Vintage"]),
+                row["Wine"],
+                row["Locale"],
+                row["Producer"],
+                row["Varietal"],
+                row["Country"],
+                row["Region"],
+                row["SubRegion"],
+                parse_int(row["BeginConsume"]),
+                parse_int(row["EndConsume"]),
+                parse_float(row["PScore"]),
+                parse_float(row["CScore"]),
+            )
+            cursor.execute(insert_sql, values)
+            rows_inserted += 1
+
+    conn.commit()
+    conn.close()
+    return rows_inserted
+
+
+def ensure_database():
+    """Ensure the database exists, creating it from CSV if needed.
+
+    Returns True if database is ready, False if setup instructions were shown.
+    """
+    if os.path.exists(DB_PATH):
+        return True
+
+    if os.path.exists(CSV_PATH):
+        print("Database not found. Initializing from cellar.csv...", file=sys.stderr)
+        init_database()
+        rows = load_csv_to_database()
+        print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
+        return True
+
+    print_setup_instructions()
+    return False
 
 
 class SortField(str, Enum):
@@ -300,6 +458,9 @@ def query(
     ] = OutputFormat.table,
 ):
     """Query wines from the cellar database with various filters."""
+    if not ensure_database():
+        raise typer.Exit()
+
     sql, params = build_query(
         color=color,
         producer=producer,
