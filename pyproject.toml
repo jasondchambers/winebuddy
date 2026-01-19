@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.scripts]
-winebuddy = "query:app"
+winebuddy = "winebuddy:app"
 
 [tool.setuptools]
-py-modules = ["query"]
+py-modules = ["winebuddy"]

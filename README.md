@@ -42,12 +42,27 @@ directory.
 
 The database will automatically get created when you call `winebuddy`.
 
-## Querying Your Cellar
+## Discovering What Is In Your Cellar
 
-Use `winebuddy` to search and filter wines from your cellar.
+Before querying, you can explore what values exist in your cellar using the `discover` command:
 
 ```bash
-winebuddy [OPTIONS]
+winebuddy discover colors      # List all wine colors (Red, White, Rosé, etc.)
+winebuddy discover producers   # List all producers
+winebuddy discover varietals   # List all varietals
+winebuddy discover countries   # List all countries
+winebuddy discover regions     # List all regions
+winebuddy discover vintages    # List all vintages
+```
+
+This helps you know exactly what filter values to use when querying.
+
+## Querying Your Cellar
+
+Use `winebuddy query` to search and filter wines from your cellar.
+
+```bash
+winebuddy query [OPTIONS]
 ```
 
 ### Filter Options
@@ -81,77 +96,77 @@ winebuddy [OPTIONS]
 
 ```bash
 # List all wines
-winebuddy
+winebuddy query
 
 # List all red wines
-winebuddy --color Red
+winebuddy query --color Red
 
 # List all wines from a specific producer
-winebuddy --producer "Château"
+winebuddy query --producer "Château"
 
 # List all Pinot Noir wines
-winebuddy --varietal "Pinot Noir"
+winebuddy query --varietal "Pinot Noir"
 ```
 
 ### Vintage Filters
 
 ```bash
 # Wines from exactly 2015
-winebuddy --vintage 2015
+winebuddy query --vintage 2015
 
 # Wines from 2015 or older
-winebuddy --vintage-max 2015
+winebuddy query --vintage-max 2015
 
 # Wines from 2018 or newer
-winebuddy --vintage-min 2018
+winebuddy query --vintage-min 2018
 
 # Wines between 2010 and 2015
-winebuddy --vintage-min 2010 --vintage-max 2015
+winebuddy query --vintage-min 2010 --vintage-max 2015
 ```
 
 ### Location Filters
 
 ```bash
 # Wines from France
-winebuddy --country France
+winebuddy query --country France
 
 # Wines from Burgundy region
-winebuddy --region Burgundy
+winebuddy query --region Burgundy
 
 # California Cabernet Sauvignon
-winebuddy --region California --varietal "Cabernet Sauvignon"
+winebuddy query --region California --varietal "Cabernet Sauvignon"
 ```
 
 ### Stock and Drinking Window
 
 ```bash
 # Only wines currently in stock
-winebuddy --in-stock
+winebuddy query --in-stock
 
 # Wines ready to drink now
-winebuddy --ready
+winebuddy query --ready
 
 # Red wines in stock that are ready to drink
-winebuddy --color Red --in-stock --ready
+winebuddy query --color Red --in-stock --ready
 ```
 
 ### Sorting Results
 
 ```bash
 # Sort by vintage (oldest first)
-winebuddy --sort vintage
+winebuddy query --sort vintage
 
 # Sort by vintage (newest first)
-winebuddy --sort vintage --desc
+winebuddy query --sort vintage --desc
 
 # Sort by professional score (highest first)
-winebuddy --sort score --desc
+winebuddy query --sort score --desc
 
 # Sort by value (most expensive first)
-winebuddy --sort value --desc
+winebuddy query --sort value --desc
 
 # Top 10 highest-scored wines
-winebuddy --sort score --desc --limit 10
+winebuddy query --sort score --desc --limit 10
 ```
 
 ### Output Formats
@@ -159,7 +174,7 @@ winebuddy --sort score --desc --limit 10
 #### Table (default)
 
 ```bash
-winebuddy --limit 5
+winebuddy query --limit 5
 ```
 
 ```
@@ -175,7 +190,7 @@ NV      | Billecart-Salmon Brut Rosé   | Billecart-Salmon| Champagne  | Champag
 #### JSON
 
 ```bash
-winebuddy --format json --limit 2
+winebuddy query --format json --limit 2
 ```
 
 ```json
@@ -202,7 +217,7 @@ winebuddy --format json --limit 2
 #### CSV
 
 ```bash
-winebuddy --format csv --limit 2
+winebuddy query --format csv --limit 2
 ```
 
 ```csv
@@ -213,23 +228,23 @@ id,wine_name,vintage,producer,varietal,color,country,region,subregion,quantity,v
 Export to a file:
 
 ```bash
-winebuddy --format csv > my_wines.csv
+winebuddy query --format csv > my_wines.csv
 ```
 
 ### Combined Examples
 
 ```bash
 # French red wines from 2015 or older, sorted by score
-winebuddy --country France --color Red --vintage-max 2015 --sort score --desc
+winebuddy query --country France --color Red --vintage-max 2015 --sort score --desc
 
 # Top 5 most valuable wines in stock
-winebuddy --in-stock --sort value --desc --limit 5
+winebuddy query --in-stock --sort value --desc --limit 5
 
 # All Champagne ready to drink, as JSON
-winebuddy --region Champagne --ready --format json
+winebuddy query --region Champagne --ready --format json
 
 # Italian wines with score >= 90
-winebuddy --country Italy --score-min 90
+winebuddy query --country Italy --score-min 90
 ```
 
 ## Database Schema
