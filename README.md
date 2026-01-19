@@ -10,15 +10,11 @@ cellar.
 ```bash
 # From local directory
 uvx --from . winebuddy --help
-
-### Install as a tool
+```
 
 ```bash
 # Install from local directory
 uv tool install .
-
-# Or install from a git repository
-uv tool install git+https://github.com/your-username/winebuddy
 ```
 
 Once installed, run the tool directly:
@@ -44,13 +40,7 @@ Values for the Export Format, and you select precisely the columns shown above.
 Make sure the file exported is named cellar.csv and is moved to the current
 directory.
 
-```bash
-# Initialize the database
-uv run python init_db.py
-
-# Load wine data from the cellar.csv file
-uv run python load_csv.py
-```
+The database will automatically get created when you call `winebuddy`.
 
 ## Querying Your Cellar
 
