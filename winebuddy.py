@@ -13,17 +13,27 @@ from typing import Annotated, Optional
 
 import typer
 
-DB_PATH = "cellar.db"
-CSV_PATH = "cellar.csv"
+# Default cellar name and derived paths (can be overridden via --cellar-name)
+CELLAR_NAME = "cellar"
+DB_PATH = f"{CELLAR_NAME}.db"
+CSV_PATH = f"{CELLAR_NAME}.csv"
+
+
+def set_cellar_paths(cellar_name: str) -> None:
+    """Set the global DB and CSV paths based on cellar name."""
+    global CELLAR_NAME, DB_PATH, CSV_PATH
+    CELLAR_NAME = cellar_name
+    DB_PATH = f"{cellar_name}.db"
+    CSV_PATH = f"{cellar_name}.csv"
 
 
 def print_setup_instructions():
     """Print instructions for exporting data from CellarTracker."""
-    instructions = """
+    instructions = f"""
 WineBuddy Setup
 ===============
 
-No cellar database or CSV file found.
+{CSV_PATH} file found.
 
 To get started, you need to export your wine data from CellarTracker:
 
@@ -37,7 +47,7 @@ To get started, you need to export your wine data from CellarTracker:
      Color, Category, Size, Currency, Value, Price, TotalQuantity,
      Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
      Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
-5. Download and save the file as "cellar.csv" in the current directory
+5. Download and save the file as {CSV_PATH} in the current directory
 6. Run winebuddy again
 """
     print(instructions)
@@ -200,12 +210,33 @@ discover_app = typer.Typer(help="Discover distinct values in the cellar database
 app.add_typer(discover_app, name="discover")
 
 
+@app.callback()
+def main(
+    cellar_name: Annotated[
+        Optional[str],
+        typer.Option(
+            "--cellar-name",
+            help="Over-ride default name for cellar files (useful for testing)",
+        ),
+    ] = None,
+):
+    """
+    WineBuddy - Query and filter wines from your cellar database.
+    """
+    if cellar_name is not None:
+        set_cellar_paths(cellar_name)
+
+
 def get_distinct_values(column: str) -> list[str]:
     """Query distinct values for a given column from the wines table."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     # Column name is hardcoded by callers, not user input
-    cursor.execute(f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {column}")
+    cursor.execute(
+        f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {
+            column
+        }"
+    )
     values = [row[0] for row in cursor.fetchall()]
     conn.close()
     return values
@@ -391,15 +422,17 @@ def format_table(rows: list[sqlite3.Row]) -> str:
     for row in rows:
         score = row["professional_score"]
         score_str = f"{score:.1f}" if score else "-"
-        data.append([
-            str(row["vintage"]) if row["vintage"] else "NV",
-            (row["wine_name"] or "-")[:40],
-            (row["producer"] or "-")[:20],
-            (row["varietal"] or "-")[:15],
-            (row["region"] or "-")[:15],
-            str(row["quantity"]),
-            score_str,
-        ])
+        data.append(
+            [
+                str(row["vintage"]) if row["vintage"] else "NV",
+                (row["wine_name"] or "-")[:40],
+                (row["producer"] or "-")[:20],
+                (row["varietal"] or "-")[:15],
+                (row["region"] or "-")[:15],
+                str(row["quantity"]),
+                score_str,
+            ]
+        )
 
     # Calculate column widths
     widths = [len(h) for h in headers]
@@ -429,22 +462,24 @@ def format_json(rows: list[sqlite3.Row]) -> str:
     """Format results as JSON."""
     data = []
     for row in rows:
-        data.append({
-            "id": row["id"],
-            "wine_name": row["wine_name"],
-            "vintage": row["vintage"],
-            "producer": row["producer"],
-            "varietal": row["varietal"],
-            "color": row["color"],
-            "country": row["country"],
-            "region": row["region"],
-            "subregion": row["subregion"],
-            "quantity": row["quantity"],
-            "value": row["value"],
-            "professional_score": row["professional_score"],
-            "begin_consume": row["begin_consume"],
-            "end_consume": row["end_consume"],
-        })
+        data.append(
+            {
+                "id": row["id"],
+                "wine_name": row["wine_name"],
+                "vintage": row["vintage"],
+                "producer": row["producer"],
+                "varietal": row["varietal"],
+                "color": row["color"],
+                "country": row["country"],
+                "region": row["region"],
+                "subregion": row["subregion"],
+                "quantity": row["quantity"],
+                "value": row["value"],
+                "professional_score": row["professional_score"],
+                "begin_consume": row["begin_consume"],
+                "end_consume": row["end_consume"],
+            }
+        )
     return json.dumps(data, indent=2)
 
 
@@ -457,9 +492,22 @@ def format_csv(rows: list[sqlite3.Row]) -> str:
     writer = csv.writer(output)
 
     # Header
-    columns = ["id", "wine_name", "vintage", "producer", "varietal", "color",
-               "country", "region", "subregion", "quantity", "value",
-               "professional_score", "begin_consume", "end_consume"]
+    columns = [
+        "id",
+        "wine_name",
+        "vintage",
+        "producer",
+        "varietal",
+        "color",
+        "country",
+        "region",
+        "subregion",
+        "quantity",
+        "value",
+        "professional_score",
+        "begin_consume",
+        "end_consume",
+    ]
     writer.writerow(columns)
 
     # Data
@@ -473,63 +521,51 @@ def format_csv(rows: list[sqlite3.Row]) -> str:
 def query(
     color: Annotated[
         Optional[str],
-        typer.Option("--color", "-c", help="Filter by wine color (e.g., Red, White)")
+        typer.Option("--color", "-c", help="Filter by wine color (e.g., Red, White)"),
     ] = None,
     producer: Annotated[
         Optional[str],
-        typer.Option("--producer", "-p", help="Filter by producer (contains match)")
+        typer.Option("--producer", "-p", help="Filter by producer (contains match)"),
     ] = None,
     varietal: Annotated[
         Optional[str],
-        typer.Option("--varietal", "-v", help="Filter by varietal (contains match)")
+        typer.Option("--varietal", "-v", help="Filter by varietal (contains match)"),
     ] = None,
     country: Annotated[
-        Optional[str],
-        typer.Option("--country", help="Filter by country")
+        Optional[str], typer.Option("--country", help="Filter by country")
     ] = None,
     region: Annotated[
         Optional[str],
-        typer.Option("--region", "-r", help="Filter by region (contains match)")
+        typer.Option("--region", "-r", help="Filter by region (contains match)"),
     ] = None,
     vintage: Annotated[
-        Optional[int],
-        typer.Option("--vintage", help="Filter by exact vintage year")
+        Optional[int], typer.Option("--vintage", help="Filter by exact vintage year")
     ] = None,
     vintage_min: Annotated[
-        Optional[int],
-        typer.Option("--vintage-min", help="Minimum vintage year")
+        Optional[int], typer.Option("--vintage-min", help="Minimum vintage year")
     ] = None,
     vintage_max: Annotated[
-        Optional[int],
-        typer.Option("--vintage-max", help="Maximum vintage year")
+        Optional[int], typer.Option("--vintage-max", help="Maximum vintage year")
     ] = None,
     score_min: Annotated[
-        Optional[float],
-        typer.Option("--score-min", help="Minimum professional score")
+        Optional[float], typer.Option("--score-min", help="Minimum professional score")
     ] = None,
     in_stock: Annotated[
-        bool,
-        typer.Option("--in-stock", help="Only show wines with quantity > 0")
+        bool, typer.Option("--in-stock", help="Only show wines with quantity > 0")
     ] = False,
     ready: Annotated[
         bool,
-        typer.Option("--ready", help="Only show wines within their drinking window")
+        typer.Option("--ready", help="Only show wines within their drinking window"),
     ] = False,
     sort: Annotated[
-        SortField,
-        typer.Option("--sort", "-s", help="Sort by field")
+        SortField, typer.Option("--sort", "-s", help="Sort by field")
     ] = SortField.vintage,
-    desc: Annotated[
-        bool,
-        typer.Option("--desc", "-d", help="Sort descending")
-    ] = False,
+    desc: Annotated[bool, typer.Option("--desc", "-d", help="Sort descending")] = False,
     limit: Annotated[
-        Optional[int],
-        typer.Option("--limit", "-l", help="Limit number of results")
+        Optional[int], typer.Option("--limit", "-l", help="Limit number of results")
     ] = None,
     output_format: Annotated[
-        OutputFormat,
-        typer.Option("--format", "-f", help="Output format")
+        OutputFormat, typer.Option("--format", "-f", help="Output format")
     ] = OutputFormat.table,
 ):
     """Query wines from the cellar database with various filters."""

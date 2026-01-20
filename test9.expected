@@ -1,0 +1,4 @@
+id,wine_name,vintage,producer,varietal,color,country,region,subregion,quantity,value,professional_score,begin_consume,end_consume
+5,Billecart-Salmon Champagne Brut Rosé,,Billecart-Salmon,Champagne Blend,Rosé,France,Champagne,Unknown,8,92.8955,,2014,2025
+72,Piper-Heidsieck Champagne Cuvée 1785,,Piper-Heidsieck,Champagne Blend,White,France,Champagne,Unknown,1,40.6132,,2022,2025
+

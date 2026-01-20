@@ -1,0 +1,34 @@
+[
+  {
+    "id": 5,
+    "wine_name": "Billecart-Salmon Champagne Brut Ros\u00e9",
+    "vintage": null,
+    "producer": "Billecart-Salmon",
+    "varietal": "Champagne Blend",
+    "color": "Ros\u00e9",
+    "country": "France",
+    "region": "Champagne",
+    "subregion": "Unknown",
+    "quantity": 8,
+    "value": 92.8955,
+    "professional_score": null,
+    "begin_consume": 2014,
+    "end_consume": 2025
+  },
+  {
+    "id": 72,
+    "wine_name": "Piper-Heidsieck Champagne Cuv\u00e9e 1785",
+    "vintage": null,
+    "producer": "Piper-Heidsieck",
+    "varietal": "Champagne Blend",
+    "color": "White",
+    "country": "France",
+    "region": "Champagne",
+    "subregion": "Unknown",
+    "quantity": 1,
+    "value": 40.6132,
+    "professional_score": null,
+    "begin_consume": 2022,
+    "end_consume": 2025
+  }
+]
