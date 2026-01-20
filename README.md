@@ -1,7 +1,17 @@
 # WineBuddy
 
-A wine cellar database application that enables you to query the wines in your
-cellar.
+A wine cellar database CLI application that enables you to query the wines in your
+cellar. 
+
+You may ask, why even bother going to the trouble of developing a nerdy CLI
+application for querying your wine cellar. That is a good question? The answer
+is exploring can you ask your chat application (i.e. Claude Code) about the
+contents of your wine cellar. That is a far more interesting scenario.
+
+So, the real use of WineBuddy is to incorporate it into a Claude Code Skill, so
+you can do exactly that. The skill is called 
+[wine-paring](https://github.com/jasondchambers/wine-pairing) so be sure to
+check it out.
 
 ## Installation
 
