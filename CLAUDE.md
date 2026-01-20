@@ -23,6 +23,13 @@ winebuddy discover regions
 
 # Run tests
 ./test.sh
+
+# Linting
+uvx pyright
+uvx bandit *.py
+uvx ruff check
+shellcheck *.sh
+uvx pip-audit
 ```
 
 ## Architecture
@@ -42,4 +49,9 @@ winebuddy discover regions
 - Non-vintage wines use `1001` in the CSV and are stored as `NULL` in the database
 - Drinking window values of `9999` indicate unknown
 - Sort columns use a whitelist (`SORT_COLUMNS` dict) to prevent SQL injection
+- Discover columns use a whitelist (`DISCOVER_COLUMNS` set) to prevent SQL injection
 - CSV files use `latin-1` encoding
+
+## Testing
+
+Tests use a `run_test` helper function that compares command output against expected files (`test*.expected`). Each test runs `uv run python winebuddy.py --cellar-name cellar.test` with different arguments and asserts exact output match.

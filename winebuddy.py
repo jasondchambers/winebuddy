@@ -186,8 +186,8 @@ class SortField(str, Enum):
     vintage = "vintage"
     producer = "producer"
     score = "score"
-    value = "value"
-    name = "name"
+    price = "price"
+    wine_name = "wine_name"
 
 
 class OutputFormat(str, Enum):
@@ -201,8 +201,8 @@ SORT_COLUMNS = {
     "vintage": "vintage",
     "producer": "producer",
     "score": "professional_score",
-    "value": "value",
-    "name": "wine_name",
+    "price": "value",
+    "wine_name": "wine_name",
 }
 
 app = typer.Typer(help="Query and filter wines from the cellar database.")
@@ -227,15 +227,17 @@ def main(
         set_cellar_paths(cellar_name)
 
 
+DISCOVER_COLUMNS = {"color", "producer", "varietal", "country", "region", "vintage"}
+
+
 def get_distinct_values(column: str) -> list[str]:
     """Query distinct values for a given column from the wines table."""
+    if column not in DISCOVER_COLUMNS:
+        raise ValueError(f"Invalid column: {column}")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # Column name is hardcoded by callers, not user input
     cursor.execute(
-        f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {
-            column
-        }"
+        f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {column}"  # nosec B608 - column validated against whitelist
     )
     values = [row[0] for row in cursor.fetchall()]
     conn.close()
