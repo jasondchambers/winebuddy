@@ -7,24 +7,60 @@ import json
 import os
 import sqlite3
 import sys
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Optional
 
 import typer
 
-# Default cellar name and derived paths (can be overridden via --cellar-name)
-CELLAR_NAME = "cellar"
-DB_PATH = f"{CELLAR_NAME}.db"
-CSV_PATH = f"{CELLAR_NAME}.csv"
+
+@dataclass
+class CellarConfig:
+    """Configuration for cellar database and CSV paths."""
+
+    db_path: str
+    csv_path: str
+
+    @classmethod
+    def from_name(cls, name: str = "cellar") -> "CellarConfig":
+        return cls(db_path=f"{name}.db", csv_path=f"{name}.csv")
 
 
-def set_cellar_paths(cellar_name: str) -> None:
-    """Set the global DB and CSV paths based on cellar name."""
-    global CELLAR_NAME, DB_PATH, CSV_PATH
-    CELLAR_NAME = cellar_name
-    DB_PATH = f"{cellar_name}.db"
-    CSV_PATH = f"{cellar_name}.csv"
+# Global config instance, set by CLI callback
+config: CellarConfig = CellarConfig.from_name()
+
+
+@contextmanager
+def get_connection(row_factory: bool = False):
+    """Context manager for database connections."""
+    conn = sqlite3.connect(config.db_path)
+    if row_factory:
+        conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+# Columns returned by queries (defined once, used by query builder and formatters)
+QUERY_COLUMNS = [
+    "id",
+    "wine_name",
+    "vintage",
+    "producer",
+    "varietal",
+    "color",
+    "country",
+    "region",
+    "subregion",
+    "quantity",
+    "value",
+    "professional_score",
+    "begin_consume",
+    "end_consume",
+]
 
 
 def print_setup_instructions():
@@ -33,7 +69,7 @@ def print_setup_instructions():
 WineBuddy Setup
 ===============
 
-{CSV_PATH} file found.
+{config.csv_path} file not found.
 
 To get started, you need to export your wine data from CellarTracker:
 
@@ -47,7 +83,7 @@ To get started, you need to export your wine data from CellarTracker:
      Color, Category, Size, Currency, Value, Price, TotalQuantity,
      Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
      Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
-5. Download and save the file as {CSV_PATH} in the current directory
+5. Download and save the file as {config.csv_path} in the current directory
 6. Run winebuddy again
 """
     print(instructions)
@@ -55,38 +91,35 @@ To get started, you need to export your wine data from CellarTracker:
 
 def init_database():
     """Initialize the SQLite database with the wines table schema."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS wines (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            color TEXT NOT NULL,
-            category TEXT NOT NULL,
-            size TEXT NOT NULL,
-            currency TEXT NOT NULL,
-            value REAL,
-            price REAL,
-            total_quantity INTEGER NOT NULL DEFAULT 0,
-            quantity INTEGER NOT NULL DEFAULT 0,
-            pending INTEGER NOT NULL DEFAULT 0,
-            vintage INTEGER,
-            wine_name TEXT NOT NULL,
-            locale TEXT,
-            producer TEXT,
-            varietal TEXT,
-            country TEXT,
-            region TEXT,
-            subregion TEXT,
-            begin_consume INTEGER,
-            end_consume INTEGER,
-            professional_score REAL,
-            community_score REAL
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS wines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                color TEXT NOT NULL,
+                category TEXT NOT NULL,
+                size TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                value REAL,
+                price REAL,
+                total_quantity INTEGER NOT NULL DEFAULT 0,
+                quantity INTEGER NOT NULL DEFAULT 0,
+                pending INTEGER NOT NULL DEFAULT 0,
+                vintage INTEGER,
+                wine_name TEXT NOT NULL,
+                locale TEXT,
+                producer TEXT,
+                varietal TEXT,
+                country TEXT,
+                region TEXT,
+                subregion TEXT,
+                begin_consume INTEGER,
+                end_consume INTEGER,
+                professional_score REAL,
+                community_score REAL
+            )
+        """)
+        conn.commit()
 
 
 def parse_float(value):
@@ -115,51 +148,50 @@ def parse_vintage(value):
 
 def load_csv_to_database():
     """Load wine data from CSV file into the SQLite database."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    with get_connection() as conn:
+        cursor = conn.cursor()
 
-    with open(CSV_PATH, "r", encoding="latin-1") as f:
-        reader = csv.DictReader(f)
+        with open(config.csv_path, "r", encoding="latin-1") as f:
+            reader = csv.DictReader(f)
 
-        insert_sql = """
-            INSERT INTO wines (
-                color, category, size, currency, value, price,
-                total_quantity, quantity, pending, vintage, wine_name,
-                locale, producer, varietal, country, region, subregion,
-                begin_consume, end_consume, professional_score, community_score
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
+            insert_sql = """
+                INSERT INTO wines (
+                    color, category, size, currency, value, price,
+                    total_quantity, quantity, pending, vintage, wine_name,
+                    locale, producer, varietal, country, region, subregion,
+                    begin_consume, end_consume, professional_score, community_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
 
-        rows_inserted = 0
-        for row in reader:
-            values = (
-                row["Color"],
-                row["Category"],
-                row["Size"],
-                row["Currency"],
-                parse_float(row["Value"]),
-                parse_float(row["Price"]),
-                parse_int(row["TotalQuantity"]),
-                parse_int(row["Quantity"]),
-                parse_int(row["Pending"]),
-                parse_vintage(row["Vintage"]),
-                row["Wine"],
-                row["Locale"],
-                row["Producer"],
-                row["Varietal"],
-                row["Country"],
-                row["Region"],
-                row["SubRegion"],
-                parse_int(row["BeginConsume"]),
-                parse_int(row["EndConsume"]),
-                parse_float(row["PScore"]),
-                parse_float(row["CScore"]),
-            )
-            cursor.execute(insert_sql, values)
-            rows_inserted += 1
+            rows_inserted = 0
+            for row in reader:
+                values = (
+                    row["Color"],
+                    row["Category"],
+                    row["Size"],
+                    row["Currency"],
+                    parse_float(row["Value"]),
+                    parse_float(row["Price"]),
+                    parse_int(row["TotalQuantity"]),
+                    parse_int(row["Quantity"]),
+                    parse_int(row["Pending"]),
+                    parse_vintage(row["Vintage"]),
+                    row["Wine"],
+                    row["Locale"],
+                    row["Producer"],
+                    row["Varietal"],
+                    row["Country"],
+                    row["Region"],
+                    row["SubRegion"],
+                    parse_int(row["BeginConsume"]),
+                    parse_int(row["EndConsume"]),
+                    parse_float(row["PScore"]),
+                    parse_float(row["CScore"]),
+                )
+                cursor.execute(insert_sql, values)
+                rows_inserted += 1
 
-    conn.commit()
-    conn.close()
+        conn.commit()
     return rows_inserted
 
 
@@ -168,11 +200,11 @@ def ensure_database():
 
     Returns True if database is ready, False if setup instructions were shown.
     """
-    if os.path.exists(DB_PATH):
+    if os.path.exists(config.db_path):
         return True
 
-    if os.path.exists(CSV_PATH):
-        print("Database not found. Initializing from cellar.csv...", file=sys.stderr)
+    if os.path.exists(config.csv_path):
+        print("Database not found. Initializing from CSV...", file=sys.stderr)
         init_database()
         rows = load_csv_to_database()
         print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
@@ -223,25 +255,35 @@ def main(
     """
     WineBuddy - Query and filter wines from your cellar database.
     """
+    global config
     if cellar_name is not None:
-        set_cellar_paths(cellar_name)
+        config = CellarConfig.from_name(cellar_name)
 
 
-DISCOVER_COLUMNS = {"color", "producer", "varietal", "country", "region", "vintage"}
+# Discover command configuration: maps command name to (column, title)
+DISCOVER_COMMANDS = {
+    "colors": ("color", "Colors"),
+    "producers": ("producer", "Producers"),
+    "varietals": ("varietal", "Varietals"),
+    "countries": ("country", "Countries"),
+    "regions": ("region", "Regions"),
+    "vintages": ("vintage", "Vintages"),
+}
+
+# Whitelist of valid discover columns (derived from config)
+DISCOVER_COLUMNS = {col for col, _ in DISCOVER_COMMANDS.values()}
 
 
 def get_distinct_values(column: str) -> list[str]:
     """Query distinct values for a given column from the wines table."""
     if column not in DISCOVER_COLUMNS:
         raise ValueError(f"Invalid column: {column}")
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {column}"  # nosec B608 - column validated against whitelist
-    )
-    values = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return values
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT DISTINCT {column} FROM wines WHERE {column} IS NOT NULL ORDER BY {column}"  # nosec B608 - column validated against whitelist
+        )
+        return [row[0] for row in cursor.fetchall()]
 
 
 def print_values(title: str, values: list) -> None:
@@ -252,58 +294,21 @@ def print_values(title: str, values: list) -> None:
         print(f"  {value}")
 
 
-@discover_app.command("colors")
-def discover_colors():
-    """List distinct wine colors in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("color")
-    print_values("Colors", values)
+def _make_discover_command(column: str, title: str):
+    """Factory to create discover subcommands."""
+
+    def command():
+        if not ensure_database():
+            raise typer.Exit()
+        print_values(title, get_distinct_values(column))
+
+    command.__doc__ = f"List distinct {title.lower()} in the cellar."
+    return command
 
 
-@discover_app.command("producers")
-def discover_producers():
-    """List distinct producers in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("producer")
-    print_values("Producers", values)
-
-
-@discover_app.command("varietals")
-def discover_varietals():
-    """List distinct varietals in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("varietal")
-    print_values("Varietals", values)
-
-
-@discover_app.command("countries")
-def discover_countries():
-    """List distinct countries in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("country")
-    print_values("Countries", values)
-
-
-@discover_app.command("regions")
-def discover_regions():
-    """List distinct regions in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("region")
-    print_values("Regions", values)
-
-
-@discover_app.command("vintages")
-def discover_vintages():
-    """List distinct vintages in the cellar."""
-    if not ensure_database():
-        raise typer.Exit()
-    values = get_distinct_values("vintage")
-    print_values("Vintages", values)
+# Register all discover commands
+for _name, (_column, _title) in DISCOVER_COMMANDS.items():
+    discover_app.command(_name)(_make_discover_command(_column, _title))
 
 
 def build_query(
@@ -377,24 +382,11 @@ def build_query(
         params.append(current_year)
         params.append(current_year)
 
-    sql = """
-        SELECT
-            id,
-            wine_name,
-            vintage,
-            producer,
-            varietal,
-            color,
-            country,
-            region,
-            subregion,
-            quantity,
-            value,
-            professional_score,
-            begin_consume,
-            end_consume
+    columns_str = ", ".join(QUERY_COLUMNS)
+    sql = f"""
+        SELECT {columns_str}
         FROM wines
-    """
+    """  # nosec B608
 
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
@@ -462,26 +454,7 @@ def format_table(rows: list[sqlite3.Row]) -> str:
 
 def format_json(rows: list[sqlite3.Row]) -> str:
     """Format results as JSON."""
-    data = []
-    for row in rows:
-        data.append(
-            {
-                "id": row["id"],
-                "wine_name": row["wine_name"],
-                "vintage": row["vintage"],
-                "producer": row["producer"],
-                "varietal": row["varietal"],
-                "color": row["color"],
-                "country": row["country"],
-                "region": row["region"],
-                "subregion": row["subregion"],
-                "quantity": row["quantity"],
-                "value": row["value"],
-                "professional_score": row["professional_score"],
-                "begin_consume": row["begin_consume"],
-                "end_consume": row["end_consume"],
-            }
-        )
+    data = [{col: row[col] for col in QUERY_COLUMNS} for row in rows]
     return json.dumps(data, indent=2)
 
 
@@ -492,29 +465,10 @@ def format_csv(rows: list[sqlite3.Row]) -> str:
 
     output = io.StringIO()
     writer = csv.writer(output)
+    writer.writerow(QUERY_COLUMNS)
 
-    # Header
-    columns = [
-        "id",
-        "wine_name",
-        "vintage",
-        "producer",
-        "varietal",
-        "color",
-        "country",
-        "region",
-        "subregion",
-        "quantity",
-        "value",
-        "professional_score",
-        "begin_consume",
-        "end_consume",
-    ]
-    writer.writerow(columns)
-
-    # Data
     for row in rows:
-        writer.writerow([row[col] for col in columns])
+        writer.writerow([row[col] for col in QUERY_COLUMNS])
 
     return output.getvalue()
 
@@ -591,13 +545,10 @@ def query(
         limit=limit,
     )
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute(sql, params)
-    rows = cursor.fetchall()
-    conn.close()
+    with get_connection(row_factory=True) as conn:
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
 
     # Format output
     if output_format == OutputFormat.table:
