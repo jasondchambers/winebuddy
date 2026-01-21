@@ -53,15 +53,49 @@ class OutputFormat(str, Enum):
 
 
 # =============================================================================
+# Shared Constants
+# =============================================================================
+
+# Columns returned by queries (used by QueryBuilder and OutputFormatter)
+QUERY_COLUMNS = [
+    "id",
+    "wine_name",
+    "vintage",
+    "producer",
+    "varietal",
+    "color",
+    "country",
+    "region",
+    "subregion",
+    "quantity",
+    "value",
+    "professional_score",
+    "begin_consume",
+    "end_consume",
+]
+
+# Discover command configuration: maps command name to (column, title)
+# Single source of truth for discover functionality
+DISCOVER_COMMANDS = {
+    "colors": ("color", "Colors"),
+    "producers": ("producer", "Producers"),
+    "varietals": ("varietal", "Varietals"),
+    "countries": ("country", "Countries"),
+    "regions": ("region", "Regions"),
+    "vintages": ("vintage", "Vintages"),
+}
+
+# Whitelist of valid discover columns (derived from config)
+DISCOVER_COLUMNS = frozenset(col for col, _ in DISCOVER_COMMANDS.values())
+
+
+# =============================================================================
 # Database Class
 # =============================================================================
 
 
-class Database:
+class CellarDatabase:
     """Handles database connection, initialization, and CSV import."""
-
-    # Whitelist of valid columns for discover queries (security)
-    DISCOVER_COLUMNS = {"color", "producer", "varietal", "country", "region", "vintage"}
 
     def __init__(self, config: CellarConfig):
         self.config = config
@@ -80,7 +114,7 @@ class Database:
     def ensure_ready(self) -> bool:
         """Ensure the database exists, creating it from CSV if needed.
 
-        Returns True if database is ready, False if setup instructions were shown.
+        Returns True if database is ready, False if CSV file is missing.
         """
         if os.path.exists(self.config.db_path):
             return True
@@ -92,12 +126,11 @@ class Database:
             print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
             return True
 
-        self._print_setup_instructions()
         return False
 
     def get_distinct_values(self, column: str) -> list[str]:
         """Query distinct values for a given column from the wines table."""
-        if column not in self.DISCOVER_COLUMNS:
+        if column not in DISCOVER_COLUMNS:
             raise ValueError(f"Invalid column: {column}")
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -186,31 +219,6 @@ class Database:
             conn.commit()
         return rows_inserted
 
-    def _print_setup_instructions(self):
-        """Print instructions for exporting data from CellarTracker."""
-        instructions = f"""
-WineBuddy Setup
-===============
-
-{self.config.csv_path} file not found.
-
-To get started, you need to export your wine data from CellarTracker:
-
-1. Go to CellarTracker: https://mobileapp.cellartracker.com
-2. Log in to your account
-3. Navigate to your cellar and click "Export"
-4. Configure the export:
-   - Include wines from ALL pages
-   - Export Format: Comma Separated Values
-   - Select these columns:
-     Color, Category, Size, Currency, Value, Price, TotalQuantity,
-     Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
-     Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
-5. Download and save the file as {self.config.csv_path} in the current directory
-6. Run winebuddy again
-"""
-        print(instructions)
-
     @staticmethod
     def _parse_float(value):
         """Parse a float value, returning None for empty strings."""
@@ -243,24 +251,6 @@ To get started, you need to export your wine data from CellarTracker:
 
 class QueryBuilder:
     """Builds parameterized SQL queries from filter options."""
-
-    # Columns returned by queries
-    COLUMNS = [
-        "id",
-        "wine_name",
-        "vintage",
-        "producer",
-        "varietal",
-        "color",
-        "country",
-        "region",
-        "subregion",
-        "quantity",
-        "value",
-        "professional_score",
-        "begin_consume",
-        "end_consume",
-    ]
 
     # Whitelist mapping for sort columns (security)
     SORT_MAP = {
@@ -344,7 +334,7 @@ class QueryBuilder:
             params.append(current_year)
             params.append(current_year)
 
-        columns_str = ", ".join(cls.COLUMNS)
+        columns_str = ", ".join(QUERY_COLUMNS)
         sql = f"""
             SELECT {columns_str}
             FROM wines
@@ -425,7 +415,7 @@ class OutputFormatter:
     @staticmethod
     def json(rows: list[sqlite3.Row]) -> str:
         """Format results as JSON."""
-        data = [{col: row[col] for col in QueryBuilder.COLUMNS} for row in rows]
+        data = [{col: row[col] for col in QUERY_COLUMNS} for row in rows]
         return json.dumps(data, indent=2)
 
     @staticmethod
@@ -436,12 +426,20 @@ class OutputFormatter:
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(QueryBuilder.COLUMNS)
+        writer.writerow(QUERY_COLUMNS)
 
         for row in rows:
-            writer.writerow([row[col] for col in QueryBuilder.COLUMNS])
+            writer.writerow([row[col] for col in QUERY_COLUMNS])
 
         return output.getvalue()
+
+    @staticmethod
+    def values_list(title: str, values: list) -> str:
+        """Format a list of values with a title."""
+        lines = [f"\n{title} ({len(values)}):", "-" * 40]
+        for value in values:
+            lines.append(f"  {value}")
+        return "\n".join(lines)
 
 
 # =============================================================================
@@ -449,11 +447,48 @@ class OutputFormatter:
 # =============================================================================
 
 # Global database instance, set by CLI callback
-db: Database = Database(CellarConfig.from_name())
+db: CellarDatabase = CellarDatabase(CellarConfig.from_name())
 
 app = typer.Typer(help="Query and filter wines from the cellar database.")
 discover_app = typer.Typer(help="Discover distinct values in the cellar database.")
 app.add_typer(discover_app, name="discover")
+
+
+def _print_setup_instructions(config: CellarConfig) -> None:
+    """Print instructions for exporting data from CellarTracker."""
+    instructions = f"""
+WineBuddy Setup
+===============
+
+{config.csv_path} file not found.
+
+To get started, you need to export your wine data from CellarTracker:
+
+1. Go to CellarTracker: https://mobileapp.cellartracker.com
+2. Log in to your account
+3. Navigate to your cellar and click "Export"
+4. Configure the export:
+   - Include wines from ALL pages
+   - Export Format: Comma Separated Values
+   - Select these columns:
+     Color, Category, Size, Currency, Value, Price, TotalQuantity,
+     Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
+     Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
+5. Download and save the file as {config.csv_path} in the current directory
+6. Run winebuddy again
+"""
+    print(instructions)
+
+
+def _require_database() -> bool:
+    """Ensure database is ready, printing setup instructions if not.
+
+    Returns True if ready, False (after printing instructions) if not.
+    """
+    if db.ensure_ready():
+        return True
+    _print_setup_instructions(db.config)
+    return False
 
 
 @app.callback()
@@ -471,35 +506,16 @@ def main(
     """
     global db
     if cellar_name is not None:
-        db = Database(CellarConfig.from_name(cellar_name))
-
-
-# Discover command configuration: maps command name to (column, title)
-DISCOVER_COMMANDS = {
-    "colors": ("color", "Colors"),
-    "producers": ("producer", "Producers"),
-    "varietals": ("varietal", "Varietals"),
-    "countries": ("country", "Countries"),
-    "regions": ("region", "Regions"),
-    "vintages": ("vintage", "Vintages"),
-}
-
-
-def _print_values(title: str, values: list) -> None:
-    """Print a list of values with a title."""
-    print(f"\n{title} ({len(values)}):")
-    print("-" * 40)
-    for value in values:
-        print(f"  {value}")
+        db = CellarDatabase(CellarConfig.from_name(cellar_name))
 
 
 def _make_discover_command(column: str, title: str):
     """Factory to create discover subcommands."""
 
     def command():
-        if not db.ensure_ready():
+        if not _require_database():
             raise typer.Exit()
-        _print_values(title, db.get_distinct_values(column))
+        print(OutputFormatter.values_list(title, db.get_distinct_values(column)))
 
     command.__doc__ = f"List distinct {title.lower()} in the cellar."
     return command
@@ -562,7 +578,7 @@ def query(
     ] = OutputFormat.table,
 ):
     """Query wines from the cellar database with various filters."""
-    if not db.ensure_ready():
+    if not _require_database():
         raise typer.Exit()
 
     sql, params = QueryBuilder.build(
