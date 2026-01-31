@@ -56,3 +56,13 @@ uvx pip-audit
 ## Testing
 
 Tests use a `run_test` helper function that compares command output against expected files (`test*.expected`). Each test runs `uv run python winebuddy.py --cellar-name ./cellar.test` with different arguments and asserts exact output match.
+
+## Claude Code Skill
+
+This repo includes a Claude Code skill (`SKILL.md`) that enables natural language queries against the wine cellar.
+
+**Important:** When modifying the skill, update BOTH locations:
+1. **Source repo:** `./SKILL.md` (this directory - gets pushed to GitHub)
+2. **Installed skill:** `~/.claude/skills/winebuddy/SKILL.md` (active skill used by Claude Code)
+
+The installed skill at `~/.claude/skills/winebuddy/` is cloned from this repo. Changes must be made to both files to ensure they stay in sync.

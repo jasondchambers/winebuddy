@@ -1,186 +1,198 @@
 ---
-name: wine-pairing
-description: Recommend wine pairings from personal cellar for dishes and meals. Use when asking what wine to pair with food, dinner, a dish, or meal. Queries wine cellar database and suggests wines based on pairing principles and drinking windows.
+name: winebuddy
+description: Query personal wine cellar database. Use for wine pairing recommendations, searching wines, checking inventory, finding bottles by region/varietal/vintage/producer, discovering what's in the cellar, checking drinking windows, or any question about the wine collection.
+allowed-tools:
+  - Bash(git clone:*)
+  - Bash(git pull:*)
+  - Bash(uv run:*)
+  - Bash(cd:*)
+  - Bash(if:*)
+user-invocable: true
 ---
 
-# Wine Pairing Skill
+# WineBuddy Skill
 
-Recommend wines from the user's personal cellar to pair with dishes they plan to cook.
+Query and explore your personal wine cellar database.
 
-## Setup (Run Every Time)
-
-Before querying, ensure the winebuddy tool and cellar data are available:
-
-### Step 1: Clone winebuddy if needed
+## Step 1: Ensure winebuddy is installed and up-to-date
 
 ```bash
 if [ ! -d ~/.winebuddy ]; then
-  git clone git@github.com:jasondchambers/winebuddy.git ~/.winebuddy
-fi
+  git clone https://github.com/jasondchambers/winebuddy.git ~/.winebuddy
+fi && cd ~/.winebuddy && git pull
 ```
 
-### Step 2: Check for cellar.csv
+## Step 2: Run Commands
 
 ```bash
-ls ~/.winebuddy/cellar.csv
+cd ~/.winebuddy && uv run python winebuddy.py <command>
 ```
 
-**If cellar.csv is NOT found**, stop and display these instructions to the user:
+## Commands Overview
 
-> **Cellar data not found!**
->
-> To use this skill, you need to export your wine cellar from CellarTracker:
->
-> 1. Log in to [CellarTracker](https://www.cellartracker.com)
-> 2. Go to your cellar and export as CSV
-> 3. Save the file as `~/.winebuddy/cellar.csv`
->
-> Required CSV columns: Color, Category, Size, Currency, Value, Price, TotalQuantity, Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal, Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
->
-> Once your cellar.csv is in place, ask me again for wine pairing recommendations.
+| Command | Purpose |
+|---------|---------|
+| `query` | Search and filter wines |
+| `discover <type>` | List distinct values (colors, varietals, regions, etc.) |
 
-**If cellar.csv IS found**, proceed with the pairing recommendations.
+---
 
-## How to Run Winebuddy
+## Query Command
 
-All winebuddy commands should be run using uvx from the cloned repo directory:
+Search wines with filters:
 
 ```bash
-cd ~/.winebuddy && uvx --from . winebuddy <command>
+cd ~/.winebuddy && uv run python winebuddy.py query [OPTIONS]
 ```
 
-## How to Use
+### Filter Options
 
-When the user provides a dish or meal they're planning, follow these steps:
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--color` | Wine color | `--color Red` |
+| `--varietal` | Grape variety (partial match) | `--varietal "Pinot Noir"` |
+| `--producer` | Producer name (partial match) | `--producer "Patricia Green"` |
+| `--country` | Country of origin | `--country Italy` |
+| `--region` | Region (partial match) | `--region Willamette` |
+| `--vintage` | Exact vintage year | `--vintage 2019` |
+| `--vintage-min` | Minimum vintage | `--vintage-min 2015` |
+| `--vintage-max` | Maximum vintage | `--vintage-max 2018` |
+| `--score-min` | Minimum professional score | `--score-min 90` |
+| `--in-stock` | Only wines with quantity > 0 | `--in-stock` |
+| `--ready` | Wines in their drinking window | `--ready` |
 
-### Step 1: Query the Wine Cellar
+### Output Options
 
-Run the following command to get all in-stock wines sorted by score:
+| Option | Description |
+|--------|-------------|
+| `--format table` | ASCII table (default) |
+| `--format json` | JSON output |
+| `--format csv` | CSV output |
+| `--sort vintage\|producer\|score\|price\|wine_name` | Sort field |
+| `--desc` | Sort descending |
+| `--limit N` | Limit results |
+
+### JSON Output Fields
+
+```json
+{
+  "id": 1,
+  "wine_name": "Wine name",
+  "vintage": 2019,
+  "producer": "Winery",
+  "varietal": "Pinot Noir",
+  "color": "Red",
+  "country": "USA",
+  "region": "Oregon",
+  "subregion": "Willamette Valley",
+  "quantity": 3,
+  "value": 75.95,
+  "professional_score": 93.5,
+  "begin_consume": 2024,
+  "end_consume": 2032
+}
+```
+
+---
+
+## Discover Command
+
+List distinct values in the cellar:
 
 ```bash
-cd ~/.winebuddy && uvx --from . winebuddy query --in-stock --format json --sort score --desc
+cd ~/.winebuddy && uv run python winebuddy.py discover colors
+cd ~/.winebuddy && uv run python winebuddy.py discover varietals
+cd ~/.winebuddy && uv run python winebuddy.py discover producers
+cd ~/.winebuddy && uv run python winebuddy.py discover countries
+cd ~/.winebuddy && uv run python winebuddy.py discover regions
+cd ~/.winebuddy && uv run python winebuddy.py discover vintages
 ```
 
-This returns JSON with wine data including:
-- `color` - Red, White, Rosé, Sparkling, etc.
-- `varietal` - Grape variety (Pinot Noir, Chardonnay, etc.)
-- `producer` - Winery name
-- `wine_name` - Full wine name
-- `vintage` - Year (null for non-vintage)
-- `region`, `country` - Origin
-- `value` - Estimated bottle value in dollars
-- `professional_score` - Critic score (higher is better)
-- `begin_consume`, `end_consume` - Drinking window years (9999 means unknown)
-- `quantity` - Bottles available
+---
 
-### Step 2: Analyze Wines for the Dish
+## Example Queries
 
-Using classic wine pairing principles, identify wines that would complement the dish:
+### Inventory Questions
 
-**General Pairing Guidelines:**
-- **Red meat** (beef, lamb, game): Full-bodied reds (Cabernet, Merlot, Syrah, Malbec)
-- **Poultry** (chicken, turkey): Light reds (Pinot Noir) or full-bodied whites (Chardonnay)
-- **Pork**: Medium reds (Grenache, Tempranillo) or aromatic whites (Riesling)
-- **Fish**: White wines (Sauvignon Blanc, Pinot Grigio, Albariño)
-- **Seafood/shellfish**: Crisp whites, Champagne/sparkling
-- **Salmon/rich fish**: Pinot Noir or oaked Chardonnay
-- **Pasta with red sauce**: Italian reds (Sangiovese, Nebbiolo)
-- **Pasta with cream sauce**: Oaked Chardonnay, Pinot Grigio
-- **Spicy food**: Off-dry whites (Riesling, Gewürztraminer) or fruity reds
-- **Cheese**: Varies by cheese type; generally robust reds for hard cheeses, whites for soft
-- **Desserts**: Sweet wines (Port, Sauternes, late harvest)
+```bash
+# All wines in stock
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --format table
 
-**Consider also:**
-- Regional pairings (French dish → French wine)
-- Sauce and preparation method weight
-- Seasonal appropriateness
+# Most valuable bottles
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --sort price --desc --limit 5 --format json
 
-### Step 3: Generate Two Recommendation Lists
+# Oldest vintages
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --sort vintage --limit 5 --format json
+```
 
-Create exactly **two lists of up to 3 wines each**:
+### Finding Specific Wines
 
-#### List 1: "Drink Soon" (Past Drinking Window)
+```bash
+# Italian wines
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --country Italy --format json
 
-Wines that have **passed their drinking window** - these should be consumed soon to avoid further decline.
+# Wines from a region
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --region "Willamette" --format json
 
-**Criteria:**
-- `end_consume` < current year (2026)
-- `end_consume` != 9999 (exclude unknown drinking windows)
-- Must be appropriate for the dish
-- Sort by `professional_score` descending (highest first)
+# Specific producer
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --producer "Patricia Green" --format json
 
-**Purpose:** Help the user consume wines that are past their peak before they decline further.
+# Specific varietal
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --varietal "Nebbiolo" --format json
+```
 
-#### List 2: "Best Available" (For Special Occasions)
+### Drinking Window Questions
 
-The highest-scored wines that pair with the dish, **ignoring drinking window**.
+```bash
+# Ready to drink now
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --ready --format json
 
-**Criteria:**
-- Appropriate pairing for the dish
-- Sort by `professional_score` descending (highest first)
-- Include wines regardless of drinking window status
+# Top rated wines
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --sort score --desc --limit 10 --format json
 
-**Purpose:** When the occasion is special enough to open a prized bottle.
+# Wines from specific vintage range
+cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --vintage-min 2015 --vintage-max 2018 --format json
+```
 
-### Step 4: Present Recommendations
+---
 
-Format your response as follows:
+## Wine Pairing
+
+For food pairing recommendations, use these guidelines:
+
+| Dish Type | Recommended Varietals |
+|-----------|----------------------|
+| **Red meat** (beef, lamb) | Cabernet Sauvignon, Merlot, Syrah, Red Bordeaux Blend |
+| **Poultry** (chicken, turkey) | Pinot Noir, Chardonnay |
+| **Pork** | Grenache, Tempranillo, Riesling |
+| **Fish** (light) | Sauvignon Blanc, Pinot Grigio, Arneis |
+| **Salmon/rich fish** | Pinot Noir, Chardonnay, Champagne Blend |
+| **Seafood/shellfish** | Champagne Blend, Sparkling, Sauvignon Blanc |
+| **Pasta (red sauce)** | Sangiovese, Nebbiolo |
+| **Pasta (cream sauce)** | Chardonnay |
+| **Spicy food** | Riesling, Gewürztraminer, Frappato |
+
+### Pairing Query Strategy
+
+1. Identify appropriate varietals from the table above
+2. Query wines by varietal, sorted by score:
+   ```bash
+   cd ~/.winebuddy && uv run python winebuddy.py query --in-stock --varietal "Pinot Noir" --format json --sort score --desc --limit 5
+   ```
+3. Check drinking windows in results to identify:
+   - **Drink Soon**: `end_consume` < 2026 (current year)
+   - **Best Available**: Highest scores regardless of window
+
+### Pairing Response Format
 
 ```
-## Wine Pairing Recommendations for [Dish Name]
+## Wine Pairing Recommendations for [Dish]
 
 ### Drink Soon (Past Drinking Window)
-These wines have passed their optimal drinking window and should be enjoyed soon:
+1. **[Wine]** ([Vintage]) - Score: [X] | Value: $[X] | Window: [X-X]
+   Why it pairs: [rationale]
 
-1. **[Wine Name]** ([Vintage])
-   - Producer: [Producer]
-   - Varietal: [Varietal] | Region: [Region]
-   - Score: [Score] | Value: $[Value] | Drinking Window: [Begin]-[End]
-   - Why it pairs: [Brief pairing rationale]
-
-2. ...
-
-3. ...
-
-### Best Available (For Special Occasions)
-Your highest-rated wines that pair beautifully with this dish:
-
-1. **[Wine Name]** ([Vintage])
-   - Producer: [Producer]
-   - Varietal: [Varietal] | Region: [Region]
-   - Score: [Score] | Value: $[Value] | Drinking Window: [Begin]-[End]
-   - Why it pairs: [Brief pairing rationale]
-
-2. ...
-
-3. ...
-```
-
-**Notes:**
-- If fewer than 3 wines match criteria for a list, show what's available
-- If no wines match for "Drink Soon", note that no wines are past their window
-- Always explain *why* each wine pairs well with the specific dish
-- Mention if a wine is within its drinking window vs past it
-
-## Discovery Commands
-
-If needed, use these to explore what's in the cellar:
-
-```bash
-cd ~/.winebuddy && uvx --from . winebuddy discover colors      # List all wine colors
-cd ~/.winebuddy && uvx --from . winebuddy discover producers   # List all producers
-cd ~/.winebuddy && uvx --from . winebuddy discover varietals   # List all grape varieties
-cd ~/.winebuddy && uvx --from . winebuddy discover regions     # List all regions
-cd ~/.winebuddy && uvx --from . winebuddy discover vintages    # List all vintages
-```
-
-## Filtering Examples
-
-Query specific wine types if helpful:
-
-```bash
-cd ~/.winebuddy && uvx --from . winebuddy query --in-stock --color Red --format json --sort score --desc
-cd ~/.winebuddy && uvx --from . winebuddy query --in-stock --color White --format json --sort score --desc
-cd ~/.winebuddy && uvx --from . winebuddy query --in-stock --varietal "Pinot Noir" --format json
-cd ~/.winebuddy && uvx --from . winebuddy query --in-stock --region Burgundy --format json
+### Best Available (Special Occasions)
+1. **[Wine]** ([Vintage]) - Score: [X] | Value: $[X] | Window: [X-X]
+   Why it pairs: [rationale]
 ```
