@@ -30,7 +30,12 @@ class CellarConfig:
 
     @classmethod
     def from_name(cls, name: str = "cellar") -> "CellarConfig":
-        return cls(db_path=f"{name}.db", csv_path=f"{name}.csv")
+        # If name contains a path separator, use it as-is (for testing)
+        # Otherwise, use ~/.winebuddy/ as the base directory
+        if os.sep in name or (os.altsep and os.altsep in name):
+            return cls(db_path=f"{name}.db", csv_path=f"{name}.csv")
+        base_dir = os.path.expanduser("~/.winebuddy")
+        return cls(db_path=os.path.join(base_dir, f"{name}.db"), csv_path=os.path.join(base_dir, f"{name}.csv"))
 
 
 # =============================================================================
@@ -120,6 +125,10 @@ class CellarDatabase:
             return True
 
         if os.path.exists(self.config.csv_path):
+            # Create directory if it doesn't exist
+            db_dir = os.path.dirname(self.config.db_path)
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
             print("Database not found. Initializing from CSV...", file=sys.stderr)
             self._init_schema()
             rows = self._load_csv()
@@ -456,6 +465,7 @@ app.add_typer(discover_app, name="discover")
 
 def _print_setup_instructions(config: CellarConfig) -> None:
     """Print instructions for exporting data from CellarTracker."""
+    csv_dir = os.path.dirname(config.csv_path)
     instructions = f"""
 WineBuddy Setup
 ===============
@@ -474,8 +484,9 @@ To get started, you need to export your wine data from CellarTracker:
      Color, Category, Size, Currency, Value, Price, TotalQuantity,
      Quantity, Pending, Vintage, Wine, Locale, Producer, Varietal,
      Country, Region, SubRegion, BeginConsume, EndConsume, PScore, CScore
-5. Download and save the file as {config.csv_path} in the current directory
-6. Run winebuddy again
+5. Create the directory if needed: mkdir -p {csv_dir}
+6. Download and save the file as {config.csv_path}
+7. Run winebuddy again
 """
     print(instructions)
 

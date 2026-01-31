@@ -11,7 +11,7 @@ run_test() {
   local cmd_args=("$@")
 
   echo "Test $test_num: $test_name"
-  output=$(uv run python winebuddy.py --cellar-name cellar.test "${cmd_args[@]}")
+  output=$(uv run python winebuddy.py --cellar-name ./cellar.test "${cmd_args[@]}")
   expected=$(cat "test${test_num}.expected")
   if [ "$output" = "$expected" ]; then
     echo "PASS: $test_name"

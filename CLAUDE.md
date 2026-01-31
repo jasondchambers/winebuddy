@@ -41,8 +41,8 @@ uvx pip-audit
   - `discover` subcommand group for listing distinct values (colors, producers, varietals, countries, regions, vintages)
   - `query` command with filter options
 
-- **cellar.db**: SQLite database (auto-created from cellar.csv on first run)
-- **cellar.csv**: Wine data exported from CellarTracker
+- **~/.winebuddy/cellar.db**: SQLite database (auto-created from cellar.csv on first run)
+- **~/.winebuddy/cellar.csv**: Wine data exported from CellarTracker
 
 ## Key Implementation Details
 
@@ -51,7 +51,8 @@ uvx pip-audit
 - Sort columns use a whitelist (`SORT_COLUMNS` dict) to prevent SQL injection
 - Discover columns use a whitelist (`DISCOVER_COLUMNS` set) to prevent SQL injection
 - CSV files use `latin-1` encoding
+- Default data directory is `~/.winebuddy/`; use `--cellar-name ./path` with a path separator to override
 
 ## Testing
 
-Tests use a `run_test` helper function that compares command output against expected files (`test*.expected`). Each test runs `uv run python winebuddy.py --cellar-name cellar.test` with different arguments and asserts exact output match.
+Tests use a `run_test` helper function that compares command output against expected files (`test*.expected`). Each test runs `uv run python winebuddy.py --cellar-name ./cellar.test` with different arguments and asserts exact output match.

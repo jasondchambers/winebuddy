@@ -47,8 +47,13 @@ First, you need the data. The recommended way is to build your cellar using [Cel
 
 Make sure you include wines from all pages, you generate a Comma Separated
 Values for the Export Format, and you select precisely the columns shown above.
-Make sure the file exported is named cellar.csv and is moved to the current
-directory.
+
+Save the exported file to `~/.winebuddy/cellar.csv`:
+
+```bash
+mkdir -p ~/.winebuddy
+mv ~/Downloads/cellar.csv ~/.winebuddy/
+```
 
 The database will automatically get created when you call `winebuddy`.
 
