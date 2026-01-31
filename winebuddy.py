@@ -75,6 +75,7 @@ QUERY_COLUMNS = [
     "quantity",
     "value",
     "professional_score",
+    "community_score",
     "begin_consume",
     "end_consume",
 ]
@@ -265,7 +266,7 @@ class QueryBuilder:
     SORT_MAP = {
         "vintage": "vintage",
         "producer": "producer",
-        "score": "professional_score",
+        "score": "COALESCE(professional_score, community_score)",
         "price": "value",
         "wine_name": "wine_name",
     }
@@ -328,7 +329,7 @@ class QueryBuilder:
             params.append(vintage_max)
 
         if score_min is not None:
-            conditions.append("professional_score >= ?")
+            conditions.append("COALESCE(professional_score, community_score) >= ?")
             params.append(score_min)
 
         if in_stock:
@@ -384,7 +385,8 @@ class OutputFormatter:
         # Build rows data
         data = []
         for row in rows:
-            score = row["professional_score"]
+            # Prefer professional score, fall back to community score
+            score = row["professional_score"] or row["community_score"]
             score_str = f"{score:.1f}" if score else "-"
             data.append(
                 [
@@ -568,7 +570,7 @@ def query(
         Optional[int], typer.Option("--vintage-max", help="Maximum vintage year")
     ] = None,
     score_min: Annotated[
-        Optional[float], typer.Option("--score-min", help="Minimum professional score")
+        Optional[float], typer.Option("--score-min", help="Minimum score (professional or community)")
     ] = None,
     in_stock: Annotated[
         bool, typer.Option("--in-stock", help="Only show wines with quantity > 0")

@@ -12,6 +12,7 @@
     "quantity": 8,
     "value": 92.8955,
     "professional_score": null,
+    "community_score": 91.5964993090742,
     "begin_consume": 2014,
     "end_consume": 2025
   },
@@ -28,6 +29,7 @@
     "quantity": 1,
     "value": 40.6132,
     "professional_score": null,
+    "community_score": 88.9487179487179,
     "begin_consume": 2022,
     "end_consume": 2025
   }

@@ -12,6 +12,7 @@
     "quantity": 1,
     "value": 10.8,
     "professional_score": null,
+    "community_score": 82.0,
     "begin_consume": 1998,
     "end_consume": 2000
   },
@@ -28,6 +29,7 @@
     "quantity": 1,
     "value": 97.61,
     "professional_score": null,
+    "community_score": null,
     "begin_consume": 2003,
     "end_consume": 2016
   }

@@ -57,7 +57,7 @@ cd ~/.winebuddy && uv run python winebuddy.py query [OPTIONS]
 | `--vintage` | Exact vintage year | `--vintage 2019` |
 | `--vintage-min` | Minimum vintage | `--vintage-min 2015` |
 | `--vintage-max` | Maximum vintage | `--vintage-max 2018` |
-| `--score-min` | Minimum professional score | `--score-min 90` |
+| `--score-min` | Minimum score (professional or community) | `--score-min 90` |
 | `--in-stock` | Only wines with quantity > 0 | `--in-stock` |
 | `--ready` | Wines in their drinking window | `--ready` |
 
@@ -88,6 +88,7 @@ cd ~/.winebuddy && uv run python winebuddy.py query [OPTIONS]
   "quantity": 3,
   "value": 75.95,
   "professional_score": 93.5,
+  "community_score": 91.2,
   "begin_consume": 2024,
   "end_consume": 2032
 }
