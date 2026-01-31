@@ -12,7 +12,26 @@ So, the real use of WineBuddy is to incorporate it into a Claude Code Skill, so
 you can do exactly that. The skill is called winebuddy and can be invoked
 within Claude Code using /winebuddy.
 
+## Table of Contents
 
+- [Installation](#installation)
+- [Setup](#setup)
+- [Discovering What Is In Your Cellar](#discovering-what-is-in-your-cellar)
+- [Querying Your Cellar](#querying-your-cellar)
+  - [Filter Options](#filter-options)
+  - [Output Options](#output-options)
+- [Examples](#examples)
+  - [Basic Queries](#basic-queries)
+  - [Vintage Filters](#vintage-filters)
+  - [Location Filters](#location-filters)
+  - [Stock and Drinking Window](#stock-and-drinking-window)
+  - [Sorting Results](#sorting-results)
+  - [Output Formats](#output-formats)
+  - [Combined Examples](#combined-examples)
+- [Claude Code Skill](#claude-code-skill)
+  - [Installing the Skill](#installing-the-skill)
+  - [Skill Capabilities](#skill-capabilities)
+- [Database Schema](#database-schema)
 
 ## Installation
 
