@@ -262,6 +262,35 @@ winebuddy query --region Champagne --ready --format json
 winebuddy query --country Italy --score-min 90
 ```
 
+## Claude Code Skill
+
+WineBuddy includes a Claude Code skill (`SKILL.md`) that enables natural language wine pairing recommendations. When installed, you can ask Claude questions like:
+
+- "What wine should I pair with grilled salmon?"
+- "I'm making beef bourguignon tonight, what should I open?"
+- "Recommend a wine for my cheese board"
+
+### Installing the Skill
+
+Copy the `SKILL.md` file to your Claude Code skills directory:
+
+```bash
+mkdir -p ~/.claude/skills
+cp SKILL.md ~/.claude/skills/wine-pairing.md
+```
+
+### How It Works
+
+The skill instructs Claude to:
+
+1. Query your wine cellar using winebuddy
+2. Apply classic wine pairing principles to your dish
+3. Return two recommendation lists:
+   - **Drink Soon**: Wines past their drinking window that should be consumed before further decline
+   - **Best Available**: Highest-scored wines for special occasions
+
+Each recommendation includes the wine details, score, value, drinking window, and an explanation of why it pairs well with your dish.
+
 ## Database Schema
 
 The `wines` table contains:
