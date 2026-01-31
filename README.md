@@ -9,9 +9,10 @@ is exploring can you ask your chat application (i.e. Claude Code) about the
 contents of your wine cellar. That is a far more interesting scenario.
 
 So, the real use of WineBuddy is to incorporate it into a Claude Code Skill, so
-you can do exactly that. The skill is called 
-[wine-paring](https://github.com/jasondchambers/wine-pairing) so be sure to
-check it out.
+you can do exactly that. The skill is called winebuddy and can be invoked
+within Claude Code using /winebuddy.
+
+
 
 ## Installation
 
@@ -264,32 +265,39 @@ winebuddy query --country Italy --score-min 90
 
 ## Claude Code Skill
 
-WineBuddy includes a Claude Code skill (`SKILL.md`) that enables natural language wine pairing recommendations. When installed, you can ask Claude questions like:
+WineBuddy includes a Claude Code skill (`SKILL.md`) that enables natural language queries about your wine cellar. When installed, you can ask Claude questions like:
 
+- "What Sicilian wines do I have?"
+- "Show me my oldest bottles"
+- "What wines are past their drinking window?"
 - "What wine should I pair with grilled salmon?"
 - "I'm making beef bourguignon tonight, what should I open?"
-- "Recommend a wine for my cheese board"
 
 ### Installing the Skill
 
-Copy the `SKILL.md` file to your Claude Code skills directory:
+Clone or symlink the winebuddy repo to your Claude Code skills directory:
 
 ```bash
-mkdir -p ~/.claude/skills
-cp SKILL.md ~/.claude/skills/wine-pairing.md
+# Option 1: Clone directly
+git clone https://github.com/jasondchambers/winebuddy.git ~/.claude/skills/winebuddy
+
+# Option 2: Symlink if you already have the repo
+ln -s /path/to/winebuddy ~/.claude/skills/winebuddy
 ```
 
-### How It Works
+### Skill Capabilities
 
-The skill instructs Claude to:
+The skill enables Claude to:
 
-1. Query your wine cellar using winebuddy
-2. Apply classic wine pairing principles to your dish
-3. Return two recommendation lists:
-   - **Drink Soon**: Wines past their drinking window that should be consumed before further decline
-   - **Best Available**: Highest-scored wines for special occasions
+- **Query your cellar**: Search by region, varietal, producer, vintage, color
+- **Check inventory**: See what's in stock, quantities, values
+- **Drinking windows**: Find wines ready to drink or past their window
+- **Wine pairing**: Get recommendations based on classic pairing principles
+- **Discover**: List all colors, varietals, regions, producers in your cellar
 
-Each recommendation includes the wine details, score, value, drinking window, and an explanation of why it pairs well with your dish.
+For wine pairing requests, Claude returns two recommendation lists:
+- **Drink Soon**: Wines past their drinking window that should be consumed before further decline
+- **Best Available**: Highest-scored wines for special occasions
 
 ## Database Schema
 
