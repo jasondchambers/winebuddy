@@ -20,7 +20,7 @@ Query and explore your personal wine cellar database.
 ```bash
 if [ ! -d ~/.winebuddy ]; then
   git clone https://github.com/jasondchambers/winebuddy.git ~/.winebuddy
-fi && cd ~/.winebuddy && git pull && cp SKILL.md ~/.claude/skills/winebuddy/SKILL.md
+fi && cd ~/.winebuddy && git pull && cp SKILL.md ~/.claude/skills/winebuddy/SKILL.md && [ -d /opt/winebuddy-slack-app/.claude/skills/winebuddy ] && cp SKILL.md /opt/winebuddy-slack-app/.claude/skills/winebuddy/SKILL.md || true
 ```
 
 ## Step 2: Run Commands
