@@ -117,15 +117,36 @@ class CellarDatabase:
         finally:
             conn.close()
 
+    def database_exists(self) -> bool:
+        return os.path.exists(self.config.db_path)
+
+
+    def csv_exists(self) -> bool:
+        return os.path.exists(self.config.csv_path)
+
+    def has_csv_changed(self) -> bool:
+        """Check if the CSV file is newer than the database."""
+        if not self.database_exists() or not self.csv_exists():
+            return False
+        csv_mtime = os.path.getmtime(self.config.csv_path)
+        db_mtime = os.path.getmtime(self.config.db_path)
+        return csv_mtime > db_mtime
+
     def ensure_ready(self) -> bool:
         """Ensure the database exists, creating it from CSV if needed.
 
         Returns True if database is ready, False if CSV file is missing.
         """
-        if os.path.exists(self.config.db_path):
+        if self.database_exists():
+            if self.has_csv_changed():
+                print("database needs to be rebuilt", file=sys.stderr)
+                os.remove(self.config.db_path)
+                self._init_schema()
+                rows = self._load_csv()
+                print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
             return True
 
-        if os.path.exists(self.config.csv_path):
+        if self.csv_exists():
             # Create directory if it doesn't exist
             db_dir = os.path.dirname(self.config.db_path)
             if db_dir:
