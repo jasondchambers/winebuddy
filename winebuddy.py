@@ -132,6 +132,20 @@ class CellarDatabase:
         db_mtime = os.path.getmtime(self.config.db_path)
         return csv_mtime > db_mtime
 
+    def rebuild(self) -> int:
+        """Delete and recreate the database from CSV. Returns row count."""
+        os.remove(self.config.db_path)
+        self._init_schema()
+        return self._load_csv()
+
+    def create(self) -> int:
+        """Create a new database from CSV. Returns row count."""
+        db_dir = os.path.dirname(self.config.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        self._init_schema()
+        return self._load_csv()
+
     def ensure_ready(self) -> bool:
         """Ensure the database exists, creating it from CSV if needed.
 
@@ -140,20 +154,13 @@ class CellarDatabase:
         if self.database_exists():
             if self.has_csv_changed():
                 print("database needs to be rebuilt", file=sys.stderr)
-                os.remove(self.config.db_path)
-                self._init_schema()
-                rows = self._load_csv()
+                rows = self.rebuild()
                 print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
             return True
 
         if self.csv_exists():
-            # Create directory if it doesn't exist
-            db_dir = os.path.dirname(self.config.db_path)
-            if db_dir:
-                os.makedirs(db_dir, exist_ok=True)
             print("Database not found. Initializing from CSV...", file=sys.stderr)
-            self._init_schema()
-            rows = self._load_csv()
+            rows = self.create()
             print(f"Successfully loaded {rows} wines into the database.\n", file=sys.stderr)
             return True
 
@@ -525,6 +532,69 @@ def _require_database() -> bool:
     return False
 
 
+def _parse_csv_snapshot(csv_path: str) -> dict[tuple, int]:
+    """Parse CSV file into a dict keyed by (wine_name, vintage, producer) with quantity values."""
+    snapshot = {}
+    with open(csv_path, "r", encoding="latin-1") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            vintage = CellarDatabase._parse_vintage(row["Vintage"])
+            key = (row["Wine"], vintage, row["Producer"])
+            qty = CellarDatabase._parse_int(row["Quantity"]) or 0
+            # Aggregate quantities for duplicate keys
+            snapshot[key] = snapshot.get(key, 0) + qty
+    return snapshot
+
+
+def _db_snapshot() -> dict[tuple, int]:
+    """Read current database into a dict keyed by (wine_name, vintage, producer) with quantity values."""
+    snapshot = {}
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT wine_name, vintage, producer, quantity FROM wines")
+        for wine_name, vintage, producer, quantity in cursor.fetchall():
+            key = (wine_name, vintage, producer)
+            snapshot[key] = snapshot.get(key, 0) + (quantity or 0)
+    return snapshot
+
+
+def _format_wine_label(key: tuple) -> str:
+    """Format a (wine_name, vintage, producer) tuple as a readable label."""
+    wine_name, vintage, producer = key
+    vintage_str = str(vintage) if vintage else "NV"
+    return f"{vintage_str} {producer} {wine_name}"
+
+
+def _build_activity_report(old: dict[tuple, int], new: dict[tuple, int]) -> str:
+    """Compare old and new cellar snapshots and return a formatted activity report."""
+    new_wines = []
+    removed_wines = []
+    qty_changes = []
+
+    for key in sorted(new.keys() - old.keys(), key=_format_wine_label):
+        new_wines.append(f"    {_format_wine_label(key)} (qty: {new[key]})")
+
+    for key in sorted(old.keys() - new.keys(), key=_format_wine_label):
+        removed_wines.append(f"    {_format_wine_label(key)} (was qty: {old[key]})")
+
+    for key in sorted(old.keys() & new.keys(), key=_format_wine_label):
+        if old[key] != new[key]:
+            qty_changes.append(f"    {_format_wine_label(key)}: {old[key]} -> {new[key]}")
+
+    if not new_wines and not removed_wines and not qty_changes:
+        return "Activity since last refresh:\n  No changes detected."
+
+    sections = []
+    if new_wines:
+        sections.append(f"  New wines ({len(new_wines)}):\n" + "\n".join(new_wines))
+    if removed_wines:
+        sections.append(f"  Removed wines ({len(removed_wines)}):\n" + "\n".join(removed_wines))
+    if qty_changes:
+        sections.append(f"  Quantity changes ({len(qty_changes)}):\n" + "\n".join(qty_changes))
+
+    return "Activity since last refresh:\n" + "\n".join(sections)
+
+
 def _refresh_database() -> int:
     """Rebuild database from CSV if changed or missing, otherwise do nothing.
 
@@ -534,17 +604,15 @@ def _refresh_database() -> int:
         _print_setup_instructions(db.config)
         return 255
     if db.database_exists() and db.has_csv_changed():
-        os.remove(db.config.db_path)
-        db._init_schema()
-        rows = db._load_csv()
+        old_snapshot = _db_snapshot()
+        new_snapshot = _parse_csv_snapshot(db.config.csv_path)
+        report = _build_activity_report(old_snapshot, new_snapshot)
+        rows = db.rebuild()
         print(f"Database rebuilt with {rows} wines.")
+        print(f"\n{report}")
         return 2
     if not db.database_exists():
-        db_dir = os.path.dirname(db.config.db_path)
-        if db_dir:
-            os.makedirs(db_dir, exist_ok=True)
-        db._init_schema()
-        rows = db._load_csv()
+        rows = db.create()
         print(f"Database created with {rows} wines.")
         return 1
     print("Database is up to date.")
