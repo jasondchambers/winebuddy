@@ -24,8 +24,13 @@ fi && cd ~/.winebuddy && git pull
 
 ## Step 2: Run Commands
 
+Always refresh the database before running a command. This ensures the database
+is current and alerts the user to any cellar changes (new wines, consumed bottles,
+quantity changes). Exit code 255 means the CSV is missing (a real error); exit
+codes 1 (created) and 2 (rebuilt) are successes that should not block the command.
+
 ```bash
-cd ~/.winebuddy && uv run python winebuddy.py <command>
+cd ~/.winebuddy && uv run python winebuddy.py --refresh; [ $? -ne 255 ] && uv run python winebuddy.py <command>
 ```
 
 ## Commands Overview
