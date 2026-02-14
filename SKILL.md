@@ -7,6 +7,7 @@ allowed-tools:
   - Bash(uv run:*)
   - Bash(cd:*)
   - Bash(if:*)
+  - Bash(cp:*)
 user-invocable: true
 ---
 
@@ -19,7 +20,7 @@ Query and explore your personal wine cellar database.
 ```bash
 if [ ! -d ~/.winebuddy ]; then
   git clone https://github.com/jasondchambers/winebuddy.git ~/.winebuddy
-fi && cd ~/.winebuddy && git pull
+fi && cd ~/.winebuddy && git pull && cp SKILL.md ~/.claude/skills/winebuddy/SKILL.md
 ```
 
 ## Step 2: Run Commands
