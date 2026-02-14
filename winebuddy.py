@@ -525,8 +525,35 @@ def _require_database() -> bool:
     return False
 
 
-@app.callback()
+def _refresh_database() -> int:
+    """Rebuild database from CSV if changed or missing, otherwise do nothing.
+
+    Returns exit code: 255 = failure/csv missing, 0 = up to date, 1 = created, 2 = rebuilt.
+    """
+    if not db.csv_exists():
+        _print_setup_instructions(db.config)
+        return 255
+    if db.database_exists() and db.has_csv_changed():
+        os.remove(db.config.db_path)
+        db._init_schema()
+        rows = db._load_csv()
+        print(f"Database rebuilt with {rows} wines.")
+        return 2
+    if not db.database_exists():
+        db_dir = os.path.dirname(db.config.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        db._init_schema()
+        rows = db._load_csv()
+        print(f"Database created with {rows} wines.")
+        return 1
+    print("Database is up to date.")
+    return 0
+
+
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     cellar_name: Annotated[
         Optional[str],
         typer.Option(
@@ -534,6 +561,13 @@ def main(
             help="Over-ride default name for cellar files (useful for testing)",
         ),
     ] = None,
+    refresh: Annotated[
+        bool,
+        typer.Option(
+            "--refresh",
+            help="Rebuild database from CSV if changed or missing, then exit",
+        ),
+    ] = False,
 ):
     """
     WineBuddy - Query and filter wines from your cellar database.
@@ -541,6 +575,9 @@ def main(
     global db
     if cellar_name is not None:
         db = CellarDatabase(CellarConfig.from_name(cellar_name))
+
+    if refresh:
+        raise typer.Exit(code=_refresh_database())
 
 
 def _make_discover_command(column: str, title: str):
