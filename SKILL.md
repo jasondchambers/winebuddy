@@ -31,11 +31,8 @@ quantity changes). Exit code 255 means the CSV is missing (a real error); exit
 codes 1 (created) and 2 (rebuilt) are successes that should not block the command.
 
 ```bash
-cd ~/.winebuddy && REFRESH_OUTPUT=$(uv run python winebuddy.py --refresh 2>&1); REFRESH_RC=$?; [ $REFRESH_RC -ne 255 ] && QUERY_OUTPUT=$(uv run python winebuddy.py <command> 2>&1); echo "$REFRESH_OUTPUT"; echo "$QUERY_OUTPUT"
+cd ~/.winebuddy && uv run python winebuddy.py --refresh; [ $? -ne 255 ] && uv run python winebuddy.py <command>
 ```
-
-**Important:** Always include the full `REFRESH_OUTPUT` in your response to the user so
-they can see any cellar changes (new wines added, bottles consumed, quantity changes).
 
 ## Commands Overview
 
